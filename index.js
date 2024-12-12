@@ -13,28 +13,47 @@ app.use(express.static(path.resolve("")));
 let arr = [];
 let playingArray = [];
 
+// Kazanma kombinasyonları
+const winConditions = [
+  [0, 1, 2],
+  [3, 4, 5],
+  [6, 7, 8],
+  [0, 3, 6],
+  [1, 4, 7],
+  [2, 5, 8],
+  [0, 4, 8],
+  [2, 4, 6],
+];
+
+// Kazananı kontrol etme fonksiyonu
+function checkWinner(board) {
+  for (let condition of winConditions) {
+    const [a, b, c] = condition;
+    if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+      return board[a]; // X veya O döner
+    }
+  }
+  return null; // Kazanan yok
+}
+
 io.on("connection", (socket) => {
   socket.on("find", (e) => {
     if (e.name != null) {
       arr.push(e.name);
 
       if (arr.length >= 2) {
-        let p1obj = {
-          p1name: arr[0],
-          p1value: "X",
-          p1move: "",
-        };
-        let p2obj = {
-          p2name: arr[1],
-          p2value: "O",
-          p2move: "",
-        };
-
         let obj = {
-          p1: p1obj,
-          p2: p2obj,
-          sum: 1,
-          turn: "X", // Sıra X'ten başlar
+          p1: {
+            name: arr[0],
+            value: "X",
+          },
+          p2: {
+            name: arr[1],
+            value: "O",
+          },
+          board: Array(9).fill(null), // 3x3 tahtayı temsil eder
+          turn: "X", // Başlangıçta sıra X'te
+          winner: null,
         };
         playingArray.push(obj);
 
@@ -46,35 +65,40 @@ io.on("connection", (socket) => {
   });
 
   socket.on("playing", (e) => {
-    let objToChange = playingArray.find(
-      (obj) => obj.p1.p1name === e.name || obj.p2.p2name === e.name
+    let game = playingArray.find(
+      (obj) => obj.p1.name === e.name || obj.p2.name === e.name
     );
 
-    if (objToChange) {
+    if (game && !game.winner) {
       // Sıra kontrolü
-      if (objToChange.turn === e.value) {
-        if (e.value == "X") {
-          objToChange.p1.p1move = e.id;
-          objToChange.turn = "O"; // Sıra O'ya geçer
-        } else if (e.value == "O") {
-          objToChange.p2.p2move = e.id;
-          objToChange.turn = "X"; // Sıra X'e geçer
-        }
-        objToChange.sum++;
+      if (game.turn === e.value) {
+        if (!game.board[e.index]) {
+          game.board[e.index] = e.value; // Hamle yap
+          game.turn = e.value === "X" ? "O" : "X"; // Sırayı değiştir
 
-        // Hamle bilgilerini tüm oyunculara gönder
-        io.emit("playing", { allPlayers: playingArray });
+          // Kazananı kontrol et
+          const winner = checkWinner(game.board);
+          if (winner) {
+            game.winner = winner;
+            io.emit("winner", { winner, game });
+          } else if (game.board.every((cell) => cell)) {
+            io.emit("draw", { message: "Oyun berabere!" });
+          } else {
+            io.emit("playing", { allPlayers: playingArray });
+          }
+        } else {
+          socket.emit("error", { message: "Bu hücre zaten dolu!" });
+        }
       } else {
-        // Sıra yanlış oyuncuda
         socket.emit("error", { message: "Sıra sizde değil!" });
       }
     }
   });
 
   socket.on("gameOver", (e) => {
-    playingArray = playingArray.filter((obj) => obj.p1.p1name !== e.name);
-    console.log(playingArray);
-    console.log("Game Over");
+    playingArray = playingArray.filter(
+      (obj) => obj.p1.name !== e.name && obj.p2.name !== e.name
+    );
   });
 });
 
