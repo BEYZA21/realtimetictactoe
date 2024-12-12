@@ -13,47 +13,27 @@ app.use(express.static(path.resolve("")));
 let arr = [];
 let playingArray = [];
 
-// Kazanma kombinasyonları
-const winConditions = [
-  [0, 1, 2],
-  [3, 4, 5],
-  [6, 7, 8],
-  [0, 3, 6],
-  [1, 4, 7],
-  [2, 5, 8],
-  [0, 4, 8],
-  [2, 4, 6],
-];
-
-// Kazanma kontrolü
-function checkWinner(board) {
-  for (let condition of winConditions) {
-    const [a, b, c] = condition;
-    if (board[a] && board[a] === board[b] && board[a] === board[c]) {
-      return board[a]; // Kazanan oyuncunun sembolü (X veya O)
-    }
-  }
-  return null;
-}
-
 io.on("connection", (socket) => {
   socket.on("find", (e) => {
     if (e.name != null) {
       arr.push(e.name);
 
       if (arr.length >= 2) {
+        let p1obj = {
+          p1name: arr[0],
+          p1value: "X",
+          p1move: "",
+        };
+        let p2obj = {
+          p2name: arr[1],
+          p2value: "O",
+          p2move: "",
+        };
+
         let obj = {
-          p1: {
-            name: arr[0],
-            value: "X",
-          },
-          p2: {
-            name: arr[1],
-            value: "O",
-          },
-          board: Array(9).fill(null), // 3x3 tahtayı temsil eder
-          turn: "X", // Sıra başlangıçta X'te
-          winner: null,
+          p1: p1obj,
+          p2: p2obj,
+          sum: 1,
         };
         playingArray.push(obj);
 
@@ -65,45 +45,25 @@ io.on("connection", (socket) => {
   });
 
   socket.on("playing", (e) => {
-    // Oyunu bul
-    let game = playingArray.find(
-      (obj) => obj.p1.name === e.name || obj.p2.name === e.name
-    );
+    if (e.value == "X") {
+      let objToChange = playingArray.find((obj) => obj.p1.p1name === e.name);
 
-    if (game && !game.winner) {
-      // Sıra kontrolü
-      if (game.turn === e.value) {
-        if (!game.board[e.index]) {
-          game.board[e.index] = e.value; // Hücreyi doldur
-          game.turn = e.value === "X" ? "O" : "X"; // Sırayı değiştir
+      objToChange.p1.p1move = e.id;
+      objToChange.sum++;
+    } else if (e.value == "O") {
+      let objToChange = playingArray.find((obj) => obj.p2.p2name === e.name);
 
-          // Kazananı kontrol et
-          const winner = checkWinner(game.board);
-          if (winner) {
-            game.winner = winner;
-            io.emit("winner", {
-              winner: winner,
-              board: game.board,
-              message: `Kazanan: ${winner}`,
-            });
-          } else if (game.board.every((cell) => cell)) {
-            io.emit("draw", { message: "Oyun berabere!" });
-          } else {
-            io.emit("playing", { allPlayers: playingArray });
-          }
-        } else {
-          socket.emit("error", { message: "Bu hücre zaten dolu!" });
-        }
-      } else {
-        socket.emit("error", { message: "Sıra sizde değil!" });
-      }
+      objToChange.p2.p2move = e.id;
+      objToChange.sum++;
     }
+
+    io.emit("playing", { allPlayers: playingArray });
   });
 
   socket.on("gameOver", (e) => {
-    playingArray = playingArray.filter(
-      (obj) => obj.p1.name !== e.name && obj.p2.name !== e.name
-    );
+    playingArray = playingArray.filter((obj) => obj.p1.p1name !== e.name);
+    console.log(playingArray);
+    console.log("lol");
   });
 });
 
