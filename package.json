@@ -11,5 +11,6 @@
     "http": "^0.0.1-security",
     "nodemon": "^2.0.21",
     "socket.io": "^4.6.1"
-  }
+  },
+  "license": "MIT"
 }
