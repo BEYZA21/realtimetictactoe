@@ -34,6 +34,7 @@ io.on("connection", (socket) => {
           p1: p1obj,
           p2: p2obj,
           sum: 1,
+          turn: "X", // Sıra X'ten başlar
         };
         playingArray.push(obj);
 
@@ -45,25 +46,35 @@ io.on("connection", (socket) => {
   });
 
   socket.on("playing", (e) => {
-    if (e.value == "X") {
-      let objToChange = playingArray.find((obj) => obj.p1.p1name === e.name);
+    let objToChange = playingArray.find(
+      (obj) => obj.p1.p1name === e.name || obj.p2.p2name === e.name
+    );
 
-      objToChange.p1.p1move = e.id;
-      objToChange.sum++;
-    } else if (e.value == "O") {
-      let objToChange = playingArray.find((obj) => obj.p2.p2name === e.name);
+    if (objToChange) {
+      // Sıra kontrolü
+      if (objToChange.turn === e.value) {
+        if (e.value == "X") {
+          objToChange.p1.p1move = e.id;
+          objToChange.turn = "O"; // Sıra O'ya geçer
+        } else if (e.value == "O") {
+          objToChange.p2.p2move = e.id;
+          objToChange.turn = "X"; // Sıra X'e geçer
+        }
+        objToChange.sum++;
 
-      objToChange.p2.p2move = e.id;
-      objToChange.sum++;
+        // Hamle bilgilerini tüm oyunculara gönder
+        io.emit("playing", { allPlayers: playingArray });
+      } else {
+        // Sıra yanlış oyuncuda
+        socket.emit("error", { message: "Sıra sizde değil!" });
+      }
     }
-
-    io.emit("playing", { allPlayers: playingArray });
   });
 
   socket.on("gameOver", (e) => {
     playingArray = playingArray.filter((obj) => obj.p1.p1name !== e.name);
     console.log(playingArray);
-    console.log("lol");
+    console.log("Game Over");
   });
 });
 
