@@ -25,15 +25,15 @@ const winConditions = [
   [2, 4, 6],
 ];
 
-// Kazananı kontrol etme fonksiyonu
+// Kazanma kontrolü
 function checkWinner(board) {
   for (let condition of winConditions) {
     const [a, b, c] = condition;
     if (board[a] && board[a] === board[b] && board[a] === board[c]) {
-      return board[a]; // X veya O döner
+      return board[a]; // Kazanan oyuncunun sembolü (X veya O)
     }
   }
-  return null; // Kazanan yok
+  return null;
 }
 
 io.on("connection", (socket) => {
@@ -52,7 +52,7 @@ io.on("connection", (socket) => {
             value: "O",
           },
           board: Array(9).fill(null), // 3x3 tahtayı temsil eder
-          turn: "X", // Başlangıçta sıra X'te
+          turn: "X", // Sıra başlangıçta X'te
           winner: null,
         };
         playingArray.push(obj);
@@ -65,6 +65,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("playing", (e) => {
+    // Oyunu bul
     let game = playingArray.find(
       (obj) => obj.p1.name === e.name || obj.p2.name === e.name
     );
@@ -73,14 +74,18 @@ io.on("connection", (socket) => {
       // Sıra kontrolü
       if (game.turn === e.value) {
         if (!game.board[e.index]) {
-          game.board[e.index] = e.value; // Hamle yap
+          game.board[e.index] = e.value; // Hücreyi doldur
           game.turn = e.value === "X" ? "O" : "X"; // Sırayı değiştir
 
           // Kazananı kontrol et
           const winner = checkWinner(game.board);
           if (winner) {
             game.winner = winner;
-            io.emit("winner", { winner, game });
+            io.emit("winner", {
+              winner: winner,
+              board: game.board,
+              message: `Kazanan: ${winner}`,
+            });
           } else if (game.board.every((cell) => cell)) {
             io.emit("draw", { message: "Oyun berabere!" });
           } else {
